@@ -16,9 +16,9 @@
    محاسبة النفس اليومية
    ملف واحد مستقل · بلا مكتبات خارجية
    الأسبوع: من السبت إلى الجمعة
-   الصلاة = تبكير ٤ + موضوع ٣ + خشوع ٤ = ١١  (بونص حتى +٢)
-   اليوم  = (١١ × ٥) + ٢ = ٥٧
-   الأسبوع = ٥٧ × ٧ = ٣٩٩
+   الصلاة = تبكير ٤ + موضوع ٣ + خشوع ٤ = ١١  (بونص حتى +٤)
+   اليوم  = (١١ × ٥) + ٢ + ٣ + ٥ = ٦٥
+   الأسبوع = ٦٥ × ٧ = ٤٥٥
    ============================================================ */
 
 @font-face{font-family:'Hiraf';src:url('fonts-hiraf/Hiraf-Regular.woff2') format('woff2');font-weight:300 400;font-style:normal;font-display:swap}
@@ -238,6 +238,13 @@ textarea.note:focus,input.in:focus{outline:none;border-color:var(--accent)}
 .legend{display:flex;flex-wrap:wrap;gap:9px;margin-top:11px;justify-content:center}
 .lg{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;color:var(--ink2)}
 .lg i{width:12px;height:12px;border-radius:4px}
+.tbchal{padding:14px;border:1.5px solid color-mix(in srgb,var(--gold) 45%,transparent)}
+.tbchal.full{border-color:color-mix(in srgb,var(--s6) 55%,transparent)}
+.tbgrid{display:flex;flex-direction:column;gap:6px;margin-top:13px}
+.tbrow{display:flex;align-items:center;gap:8px}
+.tbname{flex:0 0 40px;font-size:10.5px;font-weight:700;color:var(--ink2)}
+.tbcells{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px}
+.tbcells i{width:8px;height:16px;border-radius:3px;flex:0 0 auto}
 .rank{padding:12px;display:flex;flex-direction:column;gap:9px}
 .rrow{display:flex;align-items:center;gap:9px}
 .rrow span{flex:0 0 52px;font-family:'Hiraf',serif;font-size:14px;font-weight:500}
@@ -320,12 +327,12 @@ var dbFs = initializeFirestore(fbApp, {
 
 /* ============================================================
    [١] النظام والثوابت
-   الصلاة  = تبكير ٤ + موضوع ٣ + خشوع ٤ = ١١   (بونص حتى +٢)
-   اليوم   = (١١ × ٥) + ٢ = ٥٧
-   الأسبوع = ٥٧ × ٧ = ٣٩٩   (من السبت إلى الجمعة)
+   الصلاة  = تبكير ٤ + موضوع ٣ + خشوع ٤ = ١١   (بونص حتى +٤)
+   اليوم   = (١١ × ٥) + ٢ + ٣ + ٥ = ٦٥
+   الأسبوع = ٦٥ × ٧ = ٤٥٥   (من السبت إلى الجمعة)
    ============================================================ */
 
-var BASE_PRAYER = 11, BASE_READ = 2, BASE_DAY = 57, BASE_WEEK = 399;
+var BASE_PRAYER = 11, BASE_READ = 2, BASE_QURAN = 3, BASE_NIGHT = 5, BASE_DAY = 65, BASE_WEEK = 455;
 var STREAK_RATIO = 0.7;
 var KEY = "mirqat:v1";
 
@@ -610,12 +617,14 @@ async function handleForgotPassword(){
   }
   render();
 }
-function blankDay(){ return { p:{}, read:0, note:"" }; }
+function blankDay(){ return { p:{}, read:0, quran:0, qiyam:0, note:"" }; }
 function getDay(ds){ return S.days[ds] || null; }
 function editDay(ds, fn){
   var d = S.days[ds] ? S.days[ds] : blankDay();
   if(!d.p) d.p = {};
   if(d.read==null) d.read = 0;
+  if(d.quran==null) d.quran = 0;
+  if(d.qiyam==null) d.qiyam = 0;
   fn(d);
   S.days[ds] = d;
   save();
@@ -625,12 +634,14 @@ function editDay(ds, fn){
    [٤] الحساب
    ============================================================ */
 function pDone(p){ return !!(p && p.e!=null && p.m!=null && p.k!=null); }
-function pBonus(p){ return p ? (p.z?1:0)+(p.r?1:0) : 0; }
+function pBonus(p){ return p ? (p.z||0)+(p.r?1:0) : 0; }
 function pScore(p){ return pDone(p) ? p.e+p.m+p.k+pBonus(p) : 0; }
 function readScore(d){ return d && d.read ? BASE_READ : 0; }
+function quranScore(d){ if(!d || !d.quran) return 0; return d.quran===2 ? BASE_QURAN*2 : BASE_QURAN; }
+function nightScore(d){ return d && d.qiyam ? BASE_NIGHT : 0; }
 function dayScore(d){
   if(!d) return 0;
-  var s = readScore(d);
+  var s = readScore(d) + quranScore(d) + nightScore(d);
   for(var i=0;i<PRAYERS.length;i++) s += pScore(d.p && d.p[PRAYERS[i].id]);
   return s;
 }
@@ -638,6 +649,8 @@ function dayHasData(d){
   if(!d) return false;
   if(d.note && d.note.trim()) return true;
   if(d.read) return true;
+  if(d.quran) return true;
+  if(d.qiyam) return true;
   for(var i=0;i<PRAYERS.length;i++) if(pDone(d.p && d.p[PRAYERS[i].id])) return true;
   return false;
 }
@@ -667,6 +680,21 @@ function longestStreak(){
   });
   return best;
 }
+
+/* تحدي أربعين يوماً — تكبيرة الإحرام: لا تُفوَّت التكبيرة الأولى (e=0) في أي صلاة */
+var TAKBIR_DAYS = 40;
+function takbirDayOK(d){
+  if(!d || prayersDone(d)!==5) return false;
+  for(var i=0;i<PRAYERS.length;i++) if(d.p[PRAYERS[i].id].e===0) return false;
+  return true;
+}
+function takbirStreak(){
+  var d = today(), n = 0;
+  if(!takbirDayOK(getDay(d))) d = shift(d,-1);
+  while(takbirDayOK(getDay(d)) && d >= S.cfg.start){ n++; d = shift(d,-1); }
+  return n;
+}
+function takbirCellColor(p){ return p && p.e!=null ? scaleColor(p.e) : "var(--line2)"; }
 
 /* المقاييس المستعملة في السجل */
 var METRICS = [
@@ -922,6 +950,24 @@ function viewToday(){
      +   '<button class="tog'+(readOn?" on":"")+'" data-a="read"><i></i></button>'
      + '</div></div>';
 
+  /* القرآن — تمت، أو تمت في بداية اليوم (بونص) */
+  var quranV = d && d.quran ? d.quran : 0;
+  h += '<div class="sect"><h2>القرآن</h2><em>'+ar(quranScore(d))+' / '+ar(BASE_QURAN)+'</em></div>';
+  h += '<div class="card" style="padding:10px"><div class="opts">'
+     +   '<button class="opt'+(quranV===1?" on":"")+'" data-a="quran" data-v="1"'+(quranV===1?' style="background:var(--s4)"':'')+'>'
+     +     '<span class="sw" style="background:var(--s4)"></span>تمت<b>+'+ar(BASE_QURAN)+'</b></button>'
+     +   '<button class="opt'+(quranV===2?" on":"")+'" data-a="quran" data-v="2"'+(quranV===2?' style="background:var(--s6)"':'')+'>'
+     +     '<span class="sw" style="background:var(--s6)"></span>تمت في بداية اليوم (الفجر أو الظهر)<b>+'+ar(BASE_QURAN*2)+'</b></button>'
+     + '</div></div>';
+
+  /* قيام الليل */
+  var qiyamOn = !!(d && d.qiyam);
+  h += '<div class="sect"><h2>قيام الليل</h2><em>'+ar(nightScore(d))+' / '+ar(BASE_NIGHT)+'</em></div>';
+  h += '<div class="card"><div class="wline">'
+     +   '<div class="wlab">قمت الليل<i>'+ar(BASE_NIGHT)+' نقاط</i></div>'
+     +   '<button class="tog'+(qiyamOn?" on":"")+'" data-a="qiyam"><i></i></button>'
+     + '</div></div>';
+
   /* رسالة لنفسك غداً */
   h += '<div class="sect"><h2>رسالة لنفسك غداً</h2><em>تقرأها في الصباح</em></div>';
   h += '<textarea class="note" rows="3" data-inp="note" placeholder="اكتب لنفسك ما تحب أن تُذكَّر به غداً… وصية، أو عزيمة، أو ما تُصلحه في صلاتك.">'+esc(d&&d.note?d.note:"")+'</textarea>';
@@ -943,7 +989,7 @@ function viewSheet(){
   var pr = PRAYERS.filter(function(p){ return p.id===sh.pid; })[0];
   var f = sh.draft;
   var ready = f.e!=null && f.m!=null && f.k!=null;
-  var tot = (f.e||0)+(f.m||0)+(f.k||0)+(f.z?1:0)+(f.r?1:0);
+  var tot = (f.e||0)+(f.m||0)+(f.k||0)+(f.z||0)+(f.r?1:0);
   var over = tot - BASE_PRAYER;
   var hasTop = f.e===6 || f.k===6;
 
@@ -969,10 +1015,12 @@ function viewSheet(){
   });
 
   h += '<div class="grp"><div class="gtit"><b>زيادات</b><em>فوق الـ'+ar(BASE_PRAYER)+'</em></div><div class="opts">';
-  h += '<button class="opt'+(f.z?" on":"")+'" data-a="bon" data-i="z"'+(f.z?' style="background:var(--s6)"':'')+'>'
-     + '<span class="sw" style="background:var(--s6)"></span>قراءة الأذكار كاملة في المسجد<b>+'+ar(1)+'</b></button>';
+  h += '<button class="opt'+(f.z===3?" on":"")+'" data-a="bon" data-i="z" data-v="3"'+(f.z===3?' style="background:var(--s6)"':'')+'>'
+     + '<span class="sw" style="background:var(--s6)"></span>الأذكار كاملة في المسجد<b>+'+ar(3)+'</b></button>';
+  h += '<button class="opt'+(f.z===2?" on":"")+'" data-a="bon" data-i="z" data-v="2"'+(f.z===2?' style="background:var(--s4)"':'')+'>'
+     + '<span class="sw" style="background:var(--s4)"></span>الأذكار كاملة في غير المسجد<b>+'+ar(2)+'</b></button>';
   h += pr.ratiba
-     ? '<button class="opt'+(f.r?" on":"")+'" data-a="bon" data-i="r"'+(f.r?' style="background:var(--s6)"':'')+'>'
+     ? '<button class="opt'+(f.r?" on":"")+'" data-a="bon" data-i="r" data-v="1"'+(f.r?' style="background:var(--s6)"':'')+'>'
        + '<span class="sw" style="background:var(--s6)"></span>'+pr.rlabel+'<b>+'+ar(1)+'</b></button>'
      : '<div class="noratiba">لا راتبة بعدية مع '+pr.name+'.</div>';
   h += '</div></div>';
@@ -1009,6 +1057,35 @@ function burstSparkles(el){
       setTimeout(function(){ s.remove(); }, 1250 + i*45);
     })(i);
   }
+}
+
+/* تحدي أربعين يوماً — تكبيرة الإحرام: بطاقة مميّزة تعرض كل صلاة في كل يوم من الأربعين */
+function viewTakbirChallenge(){
+  var n = takbirStreak(), full = n>=TAKBIR_DAYS;
+  var gridDays = [], dd = today();
+  for(var i=0;i<TAKBIR_DAYS;i++){ gridDays.push(dd); dd = shift(dd,-1); }
+  gridDays.reverse(); /* الأقدم أولاً */
+
+  var h = '<div class="sect"><h2>تحدي أربعين يوماً — تكبيرة الإحرام</h2><em>'+ar(n)+' / '+ar(TAKBIR_DAYS)+'</em></div>';
+  h += '<div class="card tbchal'+(full?" full":"")+'">'
+     +   '<div class="bar"><i style="width:'+Math.min(100,(n/TAKBIR_DAYS)*100).toFixed(1)+'%;background:'+(full?"var(--s6)":"var(--gold)")+'"></i></div>'
+     +   '<div class="hint" style="margin-top:9px">الشرط: ألا تفوتك تكبيرة الإحرام (اللون الأحمر) في أي صلاة خلال أربعين يوماً متتالية — وما دون ذلك مقبول ويُبقيك في التحدي.</div>'
+     +   '<div class="tbgrid">';
+  PRAYERS.forEach(function(pr){
+    h += '<div class="tbrow"><span class="tbname">'+pr.name+'</span><div class="tbcells">';
+    gridDays.forEach(function(ds){
+      var day = getDay(ds), p = day && day.p ? day.p[pr.id] : null;
+      h += '<i style="background:'+takbirCellColor(p)+'" title="'+shortDate(ds)+'"></i>';
+    });
+    h += '</div></div>';
+  });
+  h +=   '</div>'
+     +   '<div class="legend" style="margin-top:9px">'
+     +     lg("var(--s6)","على الأذان")+lg("var(--s4)","قريب")+lg("var(--s2)","تحية المسجد")
+     +     lg("var(--s1)","دون التحية")+lg("var(--s0)","فاتتك التكبيرة")+lg("var(--line2)","غير مسجّل")
+     +   '</div>'
+     + '</div>';
+  return h;
 }
 
 /* ============================================================
@@ -1111,6 +1188,9 @@ function viewHistory(){
      +  (UI.metric==="read" ? st(ar(streak), "السلسلة", "أطولها "+ar(longest))
                             : st(ar(over), "زيادات", "فوق المطلوب"))
      + '</div>';
+
+  /* تحدي أربعين يوماً — تكبيرة الإحرام */
+  h += viewTakbirChallenge();
 
   /* المنحنى */
   h += '<div class="sect"><h2>منحنى '+M.name+'</h2><em>'
@@ -1237,11 +1317,14 @@ function viewSettings(){
      +  rl("التبكير","المطلوب ٤ — وأعلاه ٦")
      +  rl("تحديد موضوع الصلاة","٣")
      +  rl("الخشوع","المطلوب ٤ — وأعلاه ٦")
-     +  rl("قراءة الأذكار كاملة في المسجد","زيادة +١")
+     +  rl("الأذكار كاملة في المسجد","زيادة +٣")
+     +  rl("الأذكار كاملة في غير المسجد","زيادة +٢")
      +  rl("السنة الراتبة البعدية (إن وجدت)","زيادة +١")
      +  rl("قرأت/سمعت عن الصلاة — مرة في اليوم","٢")
+     +  rl("قراءة القرآن","٣ — وفي بداية اليوم (الفجر أو الظهر) زيادة +٣")
+     +  rl("قيام الليل","٥")
      +  '<div class="rline sum"><span>الصلاة الواحدة</span><b>'+ar(BASE_PRAYER)+'</b></div>'
-     +  '<div class="rline sum"><span>اليوم = (١١ × ٥) + ٢</span><b>'+ar(BASE_DAY)+'</b></div>'
+     +  '<div class="rline sum"><span>اليوم = (١١ × ٥) + ٢ + ٣ + ٥</span><b>'+ar(BASE_DAY)+'</b></div>'
      +  '<div class="rline sum"><span>الأسبوع — السبت إلى الجمعة</span><b>'+ar(BASE_WEEK)+'</b></div>'
      +  '<div class="legend">'
      +    lg("var(--s6)","٦ زيادة")+lg("var(--s4)","٤")+lg("var(--s2)","٢")+lg("var(--s1)","١")+lg("var(--s0)","٠")
@@ -1431,7 +1514,11 @@ document.addEventListener("click", async function(ev){
       break;
     }
     case "bon":
-      if(UI.sheet){ UI.sheet.draft[i] = UI.sheet.draft[i] ? 0 : 1; sfx(UI.sheet.draft[i] ? "on" : "off"); }
+      if(UI.sheet){
+        var nv = +v;
+        UI.sheet.draft[i] = (UI.sheet.draft[i]===nv ? 0 : nv);
+        sfx(UI.sheet.draft[i] ? "on" : "off");
+      }
       break;
     case "save": {
       var sh = UI.sheet; if(!sh) break;
@@ -1439,7 +1526,7 @@ document.addEventListener("click", async function(ev){
       if(d0.e==null || d0.m==null || d0.k==null) break;
       var pr = PRAYERS.filter(function(p){ return p.id===sh.pid; })[0];
       editDay(sh.ds, function(day){
-        day.p[sh.pid] = { e:d0.e, m:d0.m, k:d0.k, z:d0.z?1:0, r:(pr.ratiba && d0.r)?1:0, n:(d0.n||"").trim() };
+        day.p[sh.pid] = { e:d0.e, m:d0.m, k:d0.k, z:d0.z||0, r:(pr.ratiba && d0.r)?1:0, n:(d0.n||"").trim() };
       });
       sfx("save");
       UI.sheet = null;
@@ -1456,6 +1543,17 @@ document.addEventListener("click", async function(ev){
     case "read":
       editDay(UI.cursor, function(d){ d.read = d.read ? 0 : 1; });
       sfx((getDay(UI.cursor)||{}).read ? "on" : "off");
+      break;
+
+    case "quran": {
+      var qv = +v;
+      editDay(UI.cursor, function(d){ d.quran = (d.quran===qv ? 0 : qv); });
+      sfx((getDay(UI.cursor)||{}).quran ? "on" : "off");
+      break;
+    }
+    case "qiyam":
+      editDay(UI.cursor, function(d){ d.qiyam = d.qiyam ? 0 : 1; });
+      sfx((getDay(UI.cursor)||{}).qiyam ? "on" : "off");
       break;
 
     case "met": sfx("tick"); UI.metric = v; break;
