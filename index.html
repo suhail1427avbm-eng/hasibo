@@ -17,8 +17,8 @@
    ملف واحد مستقل · بلا مكتبات خارجية
    الأسبوع: من السبت إلى الجمعة
    الصلاة = تبكير ٤ + موضوع ٣ + خشوع ٤ = ١١  (بونص حتى +٤)
-   اليوم  = (١١ × ٥) + ٢ + ٣ + ٥ = ٦٥
-   الأسبوع = ٦٥ × ٧ = ٤٥٥
+   اليوم  = (١١ × ٥) + ٣ + ٣ + ٥ = ٦٦
+   الأسبوع = ٦٦ × ٧ = ٤٦٢
    ============================================================ */
 
 @font-face{font-family:'Hiraf';src:url('fonts-hiraf/Hiraf-Regular.woff2') format('woff2');font-weight:300 400;font-style:normal;font-display:swap}
@@ -215,11 +215,6 @@ textarea.note:focus,input.in:focus{outline:none;border-color:var(--accent)}
 .chip{padding:6px 12px;border-radius:99px;border:1px solid var(--line);background:var(--card);font-size:12px;font-weight:700;color:var(--ink2)}
 .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .chip.sm{padding:5px 11px;font-size:11.5px}
-.stats{display:flex;gap:6px;margin-top:11px}
-.st{flex:1;padding:10px 5px;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
-.st b{display:block;font-family:'Hiraf',serif;font-size:21px;line-height:1.15;color:var(--accent)}
-.st span{display:block;font-size:10.5px;font-weight:700;margin-top:2px}
-.st i{display:block;font-style:normal;font-size:9.5px;font-weight:600;color:var(--ink3)}
 .chart{padding:10px 6px 4px}
 .chead{display:flex;justify-content:space-between;align-items:baseline;padding:0 8px 6px;font-size:11px;font-weight:700;color:var(--ink2)}
 .chead b{font-family:'Hiraf',serif;font-size:16px;margin:0 3px}
@@ -245,6 +240,15 @@ textarea.note:focus,input.in:focus{outline:none;border-color:var(--accent)}
 .tbname{flex:0 0 40px;font-size:10.5px;font-weight:700;color:var(--ink2)}
 .tbcells{display:flex;gap:3px;overflow-x:auto;padding-bottom:2px}
 .tbcells i{width:8px;height:16px;border-radius:3px;flex:0 0 auto}
+.tbstats{display:flex;gap:9px}
+.tbst{flex:1;text-align:center;background:var(--card2);border-radius:12px;padding:9px 6px}
+.tbst b{display:block;font-family:'Hiraf',serif;font-size:21px;font-weight:500;color:var(--gold)}
+.tbst span{font-size:10.5px;font-weight:700;color:var(--ink2)}
+.tbchal.full .tbst b{color:var(--s6)}
+.tblog{margin-top:13px;padding-top:11px;border-top:1px solid var(--line2)}
+.tblog>b{display:block;font-family:'Hiraf',serif;font-size:13px;font-weight:500;margin-bottom:6px}
+.tblogrow{display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:600;color:var(--ink2);padding:5px 0}
+.tblogrow b{color:var(--s0);font-weight:700}
 .rank{padding:12px;display:flex;flex-direction:column;gap:9px}
 .rrow{display:flex;align-items:center;gap:9px}
 .rrow span{flex:0 0 52px;font-family:'Hiraf',serif;font-size:14px;font-weight:500}
@@ -328,11 +332,11 @@ var dbFs = initializeFirestore(fbApp, {
 /* ============================================================
    [١] النظام والثوابت
    الصلاة  = تبكير ٤ + موضوع ٣ + خشوع ٤ = ١١   (بونص حتى +٤)
-   اليوم   = (١١ × ٥) + ٢ + ٣ + ٥ = ٦٥
-   الأسبوع = ٦٥ × ٧ = ٤٥٥   (من السبت إلى الجمعة)
+   اليوم   = (١١ × ٥) + ٣ + ٣ + ٥ = ٦٦
+   الأسبوع = ٦٦ × ٧ = ٤٦٢   (من السبت إلى الجمعة)
    ============================================================ */
 
-var BASE_PRAYER = 11, BASE_READ = 2, BASE_QURAN = 3, BASE_NIGHT = 5, BASE_DAY = 65, BASE_WEEK = 455;
+var BASE_PRAYER = 11, BASE_READ = 3, BASE_QURAN = 3, BASE_NIGHT = 5, BASE_DAY = 66, BASE_WEEK = 462;
 var STREAK_RATIO = 0.7;
 var KEY = "mirqat:v1";
 
@@ -356,13 +360,19 @@ var AXES = {
       {v:3,l:"تم"},
       {v:0,l:"لم يتم"} ] },
   k:{ key:"k", title:"الخشوع", short:"الخشوع", need:4, opts:[
-      {v:6,l:"خشوع عالي"},
+      {v:8,l:"خشوع عالي"},
       {v:4,l:"خشوع في الغالب"},
       {v:2,l:"متوسط"},
       {v:1,l:"قليل من الخشوع"},
       {v:0,l:"لم أخشع"} ] }
 };
 var AXIS_KEYS = ["e","m","k"];
+/* أعلى قيمة في محور غير ثنائي (له "درجة عليا" وبريق) — null للمحاور الثنائية */
+function axisTop(axKey){
+  var opts = AXES[axKey].opts;
+  if(opts.length<=2) return null;
+  return opts.reduce(function(m,o){ return Math.max(m,o.v); }, -Infinity);
+}
 
 var ATHAR = [
   {t:"إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَّوْقُوتًا", s:"النساء ١٠٣"},
@@ -459,28 +469,33 @@ function sfx(kind){
   if(!S.cfg.sound) return;
   try{
     if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
-    if(actx.state==="suspended") actx.resume();
-    var t = actx.currentTime;
-    /* نغمة واحدة قصيرة، حجمها خافت حتى لا تُزعج */
-    function tone(freq, start, dur, vol, type){
-      var o = actx.createOscillator(), g = actx.createGain();
-      o.type = type||"sine"; o.frequency.value = freq;
-      g.gain.setValueAtTime(0, t+start);
-      g.gain.linearRampToValueAtTime(vol, t+start+0.008);
-      g.gain.exponentialRampToValueAtTime(0.0001, t+start+dur);
-      o.connect(g); g.connect(actx.destination);
-      o.start(t+start); o.stop(t+start+dur+0.02);
+    function play(){
+      var t = actx.currentTime;
+      /* نغمة واحدة قصيرة */
+      function tone(freq, start, dur, vol, type){
+        var o = actx.createOscillator(), g = actx.createGain();
+        o.type = type||"sine"; o.frequency.value = freq;
+        g.gain.setValueAtTime(0, t+start);
+        g.gain.linearRampToValueAtTime(vol, t+start+0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t+start+dur);
+        o.connect(g); g.connect(actx.destination);
+        o.start(t+start); o.stop(t+start+dur+0.02);
+      }
+      if(kind==="tick")      tone(660, 0, 0.07, 0.11);                /* اختيار / تنقّل */
+      else if(kind==="on")   tone(880, 0, 0.09, 0.13);                /* تفعيل */
+      else if(kind==="off")  tone(440, 0, 0.09, 0.11);                /* إلغاء */
+      else if(kind==="save"){ tone(660,0,0.1,0.12); tone(990,0.08,0.15,0.12); }
+      else if(kind==="star"){ [784,988,1319,1568].forEach(function(f,i){ tone(f, i*0.06, 0.18, 0.1, "triangle"); }); }
     }
-    if(kind==="tick")      tone(660, 0, 0.055, 0.045);              /* اختيار / تنقّل */
-    else if(kind==="on")   tone(880, 0, 0.075, 0.055);              /* تفعيل */
-    else if(kind==="off")  tone(440, 0, 0.075, 0.045);              /* إلغاء */
-    else if(kind==="save"){ tone(660,0,0.09,0.05); tone(990,0.075,0.13,0.05); }
-    else if(kind==="star"){ [784,988,1319,1568].forEach(function(f,i){ tone(f, i*0.055, 0.16, 0.045, "triangle"); }); }
+    /* في متصفحات كسفاري على آيفون يبدأ السياق معلّقاً حتى بعد لفتة المستخدم —
+       ننتظر اكتمال resume() فعلياً قبل جدولة النغمة بدل الاعتماد على وقت قديم */
+    if(actx.state==="suspended") actx.resume().then(play);
+    else play();
   }catch(e){}
 }
 var UI = {
   tab:"today", cursor:today(), athar:0, sheet:null,
-  metric:"total", range:30, mode:"day", chart:"line", month:today().slice(0,7),
+  metric:"total", range:3650, mode:"day", chart:"line", month:today().slice(0,7),
   confirm:null, msg:"",
   auth:{ mode:"login", email:"", password:"", password2:"", busy:false, err:"", info:"" }
 };
@@ -669,32 +684,42 @@ function currentStreak(){
   while(qualifies(d) && d >= S.cfg.start){ n++; d = shift(d,-1); }
   return n;
 }
-function longestStreak(){
-  var keys = Object.keys(S.days).sort();
-  var best=0, run=0, prev=null;
-  keys.forEach(function(ds){
-    if(!qualifies(ds)){ run=0; prev=ds; return; }
-    run = (prev && shift(prev,1)===ds && run>0) ? run+1 : 1;
-    if(run>best) best=run;
-    prev = ds;
-  });
-  return best;
-}
-
-/* تحدي أربعين يوماً — تكبيرة الإحرام: لا تُفوَّت التكبيرة الأولى (e=0) في أي صلاة */
+/* تحدي تكبيرة الإحرام: سلسلة صلوات متتالية لا تُفوَّت فيها التكبيرة الأولى (e=0).
+   العدّاد بوحدة الصلاة لا اليوم — عند الانقطاع يُستأنف من الصلاة التالية مباشرة،
+   لا من بداية يوم جديد. الهدف أربعون يوماً = مئتا صلاة. */
 var TAKBIR_DAYS = 40;
-function takbirDayOK(d){
-  if(!d || prayersDone(d)!==5) return false;
-  for(var i=0;i<PRAYERS.length;i++) if(d.p[PRAYERS[i].id].e===0) return false;
-  return true;
-}
-function takbirStreak(){
-  var d = today(), n = 0;
-  if(!takbirDayOK(getDay(d))) d = shift(d,-1);
-  while(takbirDayOK(getDay(d)) && d >= S.cfg.start){ n++; d = shift(d,-1); }
-  return n;
-}
+var TAKBIR_TARGET = TAKBIR_DAYS * PRAYERS.length;
 function takbirCellColor(p){ return p && p.e!=null ? scaleColor(p.e) : "var(--line2)"; }
+/* يمسح كل صلاة من بداية المتابعة إلى اليوم، بترتيبها الزمني الفعلي */
+function computeTakbir(){
+  var run = 0, best = 0, log = [];
+  var tdy = today(), d = S.cfg.start;
+  outer:
+  while(d <= tdy){
+    var day = getDay(d), isToday = (d===tdy);
+    for(var i=0;i<PRAYERS.length;i++){
+      var pr = PRAYERS[i];
+      var p = day && day.p ? day.p[pr.id] : null;
+      if(!pDone(p)){
+        if(isToday) break outer;   /* صلاة اليوم لم يحن وقت تسجيلها بعد — لا تُعدّ انقطاعاً */
+        if(run>best) best = run;
+        if(run>0) log.push({ len:run, ds:d, prayer:pr.name });
+        run = 0;
+        continue;
+      }
+      if(p.e===0){
+        if(run>best) best = run;
+        if(run>0) log.push({ len:run, ds:d, prayer:pr.name });
+        run = 0;
+      }else{
+        run++;
+      }
+    }
+    d = shift(d,1);
+  }
+  if(run>best) best = run;
+  return { n:run, best:best, log:log };
+}
 
 /* المقاييس المستعملة في السجل */
 var METRICS = [
@@ -946,7 +971,7 @@ function viewToday(){
   var readOn = !!(d && d.read);
   h += '<div class="sect"><h2>قراءة اليوم</h2><em>'+ar(readScore(d))+' / '+ar(BASE_READ)+'</em></div>';
   h += '<div class="card"><div class="wline">'
-     +   '<div class="wlab">قرأت أو سمعت عن الصلاة<i>مرة واحدة في اليوم · '+ar(BASE_READ)+' نقطتان</i></div>'
+     +   '<div class="wlab">قرأت أو سمعت عن الصلاة<i>مرة واحدة في اليوم · '+ar(BASE_READ)+' نقاط</i></div>'
      +   '<button class="tog'+(readOn?" on":"")+'" data-a="read"><i></i></button>'
      + '</div></div>';
 
@@ -991,7 +1016,7 @@ function viewSheet(){
   var ready = f.e!=null && f.m!=null && f.k!=null;
   var tot = (f.e||0)+(f.m||0)+(f.k||0)+(f.z||0)+(f.r?1:0);
   var over = tot - BASE_PRAYER;
-  var hasTop = f.e===6 || f.k===6;
+  var hasTop = f.e===axisTop("e") || f.k===axisTop("k");
 
   var h = '<div class="veil" data-a="close"><div class="sheet" data-stop="1">'
         + '<div class="shead"><div><b>'+pr.name+'</b></div><em>'+longDate(sh.ds)+'</em>'
@@ -1005,7 +1030,7 @@ function viewSheet(){
     ax.opts.forEach(function(o){
       var on = f[axKey]===o.v;
       var c  = two ? binColor(o.v) : scaleColor(o.v);
-      var isTop = !two && o.v===6;
+      var isTop = !two && o.v===axisTop(axKey);
       h += '<button class="opt'+(isTop?" top":"")+(on?" on":"")+'" data-a="set" data-i="'+axKey+'" data-v="'+o.v+'"'
          + (on?' style="background:'+c+'"':'')+'>'
          + '<span class="sw" style="background:'+c+'"></span>'+o.l
@@ -1059,17 +1084,20 @@ function burstSparkles(el){
   }
 }
 
-/* تحدي أربعين يوماً — تكبيرة الإحرام: بطاقة مميّزة تعرض كل صلاة في كل يوم من الأربعين */
+/* تحدي تكبيرة الإحرام: بطاقة مميّزة — سلسلة حالية + رقم قياسي + سجل انقطاعات + شبكة آخر أربعين يوماً */
 function viewTakbirChallenge(){
-  var n = takbirStreak(), full = n>=TAKBIR_DAYS;
+  var tb = computeTakbir(), full = tb.n>=TAKBIR_TARGET;
   var gridDays = [], dd = today();
   for(var i=0;i<TAKBIR_DAYS;i++){ gridDays.push(dd); dd = shift(dd,-1); }
   gridDays.reverse(); /* الأقدم أولاً */
 
-  var h = '<div class="sect"><h2>تحدي أربعين يوماً — تكبيرة الإحرام</h2><em>'+ar(n)+' / '+ar(TAKBIR_DAYS)+'</em></div>';
+  var h = '<div class="sect"><h2>تحدي تكبيرة الإحرام</h2><em>'+ar(tb.n)+' / '+ar(TAKBIR_TARGET)+' صلاة</em></div>';
   h += '<div class="card tbchal'+(full?" full":"")+'">'
-     +   '<div class="bar"><i style="width:'+Math.min(100,(n/TAKBIR_DAYS)*100).toFixed(1)+'%;background:'+(full?"var(--s6)":"var(--gold)")+'"></i></div>'
-     +   '<div class="hint" style="margin-top:9px">الشرط: ألا تفوتك تكبيرة الإحرام (اللون الأحمر) في أي صلاة خلال أربعين يوماً متتالية — وما دون ذلك مقبول ويُبقيك في التحدي.</div>'
+     +   '<div class="tbstats">'
+     +     '<div class="tbst"><b>'+ar(tb.n)+'</b><span>السلسلة الحالية</span></div>'
+     +     '<div class="tbst"><b>'+ar(tb.best)+'</b><span>الرقم القياسي</span></div>'
+     +   '</div>'
+     +   '<div class="bar" style="margin-top:11px"><i style="width:'+Math.min(100,(tb.n/TAKBIR_TARGET)*100).toFixed(1)+'%;background:'+(full?"var(--s6)":"var(--gold)")+'"></i></div>'
      +   '<div class="tbgrid">';
   PRAYERS.forEach(function(pr){
     h += '<div class="tbrow"><span class="tbname">'+pr.name+'</span><div class="tbcells">';
@@ -1083,8 +1111,15 @@ function viewTakbirChallenge(){
      +   '<div class="legend" style="margin-top:9px">'
      +     lg("var(--s6)","على الأذان")+lg("var(--s4)","قريب")+lg("var(--s2)","تحية المسجد")
      +     lg("var(--s1)","دون التحية")+lg("var(--s0)","فاتتك التكبيرة")+lg("var(--line2)","غير مسجّل")
-     +   '</div>'
-     + '</div>';
+     +   '</div>';
+  if(tb.log.length){
+    h += '<div class="tblog"><b>سجل الانقطاعات</b>';
+    tb.log.slice(-12).reverse().forEach(function(it){
+      h += '<div class="tblogrow"><span>'+shortDate(it.ds)+' — '+it.prayer+'</span><b>'+ar(it.len)+' صلاة</b></div>';
+    });
+    h += '</div>';
+  }
+  h += '</div>';
   return h;
 }
 
@@ -1095,21 +1130,6 @@ function viewHistory(){
   var M = metricOf(UI.metric);
   var days = rangeDays(UI.range);
   var chrono = days.slice().reverse();   /* الأقدم أولاً — ليمضي الرسم من اليسار إلى اليمين */
-
-  /* إحصاءات */
-  var sum=0, n=0, best=null, bestV=-1, over=0;
-  days.forEach(function(ds){
-    var d = getDay(ds), v = dMetric(d, UI.metric);
-    if(v==null) return;
-    sum+=v; n++;
-    if(v>bestV){ bestV=v; best=ds; }
-    if(UI.metric!=="read" && d && d.p) PRAYERS.forEach(function(pr){
-      var pv = pMetric(d.p[pr.id], UI.metric);
-      if(pv!=null && M.pBase && pv>M.pBase) over++;
-    });
-  });
-  var avg = n ? Math.round((sum/n)*10)/10 : 0;
-  var streak = currentStreak(), longest = longestStreak();
 
   /* السلسلة الزمنية — الأحدث أولاً */
   var series;
@@ -1141,9 +1161,6 @@ function viewHistory(){
     return { name:pr.name, avg: c ? s/c : null, c:c };
   });
   var rankBase = (UI.metric==="read" ? BASE_PRAYER : M.pBase) || 1;
-  var rankSorted = rank.slice().sort(function(x,y){
-    if(x.avg==null) return 1; if(y.avg==null) return -1; return x.avg - y.avg;
-  });
 
   /* الأسابيع — لا تتجاوز البداية */
   var weeks = [], ws = weekStart(today());
@@ -1170,27 +1187,15 @@ function viewHistory(){
 
   var h = '<div class="screen">';
 
+  /* تحدي تكبيرة الإحرام — أولاً */
+  h += viewTakbirChallenge();
+
   /* اختيار ما يُعرض */
   h += '<div class="chips">';
   METRICS.forEach(function(m){
     h += '<button class="chip'+(UI.metric===m.id?" on":"")+'" data-a="met" data-v="'+m.id+'">'+m.name+'</button>';
   });
-  h += '</div><div class="chips" style="margin-top:6px">';
-  [{v:14,l:"أسبوعان"},{v:30,l:"شهر"},{v:90,l:"ثلاثة أشهر"},{v:3650,l:"من البداية"}].forEach(function(r){
-    h += '<button class="chip sm'+(UI.range===r.v?" on":"")+'" data-a="rng" data-v="'+r.v+'">'+r.l+'</button>';
-  });
   h += '</div>';
-
-  h += '<div class="stats">'
-     +  st(n?ar(avg):"—", "المتوسط اليومي", "من "+ar(M.dBase))
-     +  st(ar(n), "أيام مسجّلة", "من "+ar(days.length))
-     +  st(best?ar(bestV):"—", "أفضل يوم", best?shortDate(best):"")
-     +  (UI.metric==="read" ? st(ar(streak), "السلسلة", "أطولها "+ar(longest))
-                            : st(ar(over), "زيادات", "فوق المطلوب"))
-     + '</div>';
-
-  /* تحدي أربعين يوماً — تكبيرة الإحرام */
-  h += viewTakbirChallenge();
 
   /* المنحنى */
   h += '<div class="sect"><h2>منحنى '+M.name+'</h2><em>'
@@ -1235,13 +1240,13 @@ function viewHistory(){
   /* ترتيب الصلوات */
   h += '<div class="sect"><h2>أين الخلل؟</h2><em>متوسط كل صلاة</em></div>';
   h += '<div class="card rank">';
-  rankSorted.forEach(function(r){
+  rank.forEach(function(r){
     var pctv = r.avg==null ? 0 : Math.min(100, (r.avg/rankBase)*100);
     h += '<div class="rrow"><span>'+r.name+'</span>'
        +   '<div class="rbar"><i style="width:'+pctv.toFixed(1)+'%;background:'+(r.avg==null?"var(--line2)":ratioColor(r.avg,rankBase))+'"></i></div>'
        +   '<b>'+(r.avg==null?"—":ar(Math.round(r.avg*10)/10))+'</b></div>';
   });
-  h += '<div class="hint" style="text-align:center">أضعف صلواتك تظهر أولاً — ابدأ الإصلاح منها.</div></div>';
+  h += '<div class="hint" style="text-align:center">لون الشريط يكشف موضع الخلل — الأحمر أضعف.</div></div>';
 
   /* الأسابيع */
   h += '<div class="sect"><h2>الأسابيع</h2><em>السبت ← الجمعة</em></div>';
@@ -1269,7 +1274,6 @@ function viewHistory(){
   h += '<div class="foot">المتابعة تبدأ من '+longDate(S.cfg.start)+'</div></div>';
   return h;
 }
-function st(v,l,s){ return '<div class="st"><b>'+v+'</b><span>'+l+'</span><i>'+s+'</i></div>'; }
 function lg(c,t){ return '<span class="lg"><i style="background:'+c+'"></i>'+t+'</span>'; }
 
 /* ============================================================
@@ -1316,15 +1320,15 @@ function viewSettings(){
   h += '<div class="card ref">'
      +  rl("التبكير","المطلوب ٤ — وأعلاه ٦")
      +  rl("تحديد موضوع الصلاة","٣")
-     +  rl("الخشوع","المطلوب ٤ — وأعلاه ٦")
+     +  rl("الخشوع","المطلوب ٤ — وأعلاه ٨")
      +  rl("الأذكار كاملة في المسجد","زيادة +٣")
      +  rl("الأذكار كاملة في غير المسجد","زيادة +٢")
      +  rl("السنة الراتبة البعدية (إن وجدت)","زيادة +١")
-     +  rl("قرأت/سمعت عن الصلاة — مرة في اليوم","٢")
+     +  rl("قرأت/سمعت عن الصلاة — مرة في اليوم","٣")
      +  rl("قراءة القرآن","٣ — وفي بداية اليوم (الفجر أو الظهر) زيادة +٣")
      +  rl("قيام الليل","٥")
      +  '<div class="rline sum"><span>الصلاة الواحدة</span><b>'+ar(BASE_PRAYER)+'</b></div>'
-     +  '<div class="rline sum"><span>اليوم = (١١ × ٥) + ٢ + ٣ + ٥</span><b>'+ar(BASE_DAY)+'</b></div>'
+     +  '<div class="rline sum"><span>اليوم = (١١ × ٥) + ٣ + ٣ + ٥</span><b>'+ar(BASE_DAY)+'</b></div>'
      +  '<div class="rline sum"><span>الأسبوع — السبت إلى الجمعة</span><b>'+ar(BASE_WEEK)+'</b></div>'
      +  '<div class="legend">'
      +    lg("var(--s6)","٦ زيادة")+lg("var(--s4)","٤")+lg("var(--s2)","٢")+lg("var(--s1)","١")+lg("var(--s0)","٠")
@@ -1500,10 +1504,11 @@ document.addEventListener("click", async function(ev){
     case "close": sfx("off"); UI.sheet = null; break;
     case "set": {
       if(!UI.sheet) break;
-      var wasTop = UI.sheet.draft[i]===6;
+      var top = axisTop(i);
+      var wasTop = top!=null && UI.sheet.draft[i]===top;
       UI.sheet.draft[i] = (UI.sheet.draft[i]===+v ? null : +v);
       /* بريق وصوت عند بلوغ الدرجة العليا */
-      if(+v===6 && !wasTop && UI.sheet.draft[i]===6){
+      if(top!=null && +v===top && !wasTop && UI.sheet.draft[i]===top){
         sfx("star");
         render();
         var fresh = document.querySelector('.opt.top.on[data-i="'+i+'"]');
@@ -1557,7 +1562,6 @@ document.addEventListener("click", async function(ev){
       break;
 
     case "met": sfx("tick"); UI.metric = v; break;
-    case "rng": sfx("tick"); UI.range = +v; break;
     case "mode": sfx("tick"); UI.mode = v; break;
     case "chart": sfx("tick"); UI.chart = v; break;
     case "mon": {
